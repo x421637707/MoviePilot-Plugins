@@ -1,0 +1,24 @@
+{
+  "FirstNF": {
+    "name": "NF订阅兜底",
+    "description": "首次新增电视剧订阅时优先走 NextFind：向其添加订阅触发全量搜索+转存 115，入库稳定后移除 NF 订阅并交还 PT 追更，可选联动 CMS 整理；洗版订阅与后续追更不触发。",
+    "labels": "订阅",
+    "version": "1.0.9",
+    "icon": "Moviepilot_A.png",
+    "author": "firstnf-design",
+    "level": 1,
+    "system_version": ">=3.0.0",
+    "history": {
+      "v1.0.9": "新增 CMS 联动：转存完成后向 CMS 发送 Emby 入库 Webhook（POST {cms_domain}{cms_webhook_path}?token={cms_token}）触发其自动整理，与 CMSNotify 插件同一通道，失败非致命；设置页与详情页重做为卡片式分组布局（VRow/VCol/VCard/VAlert）；插件显示名改为「NF订阅兜底」。",
+      "v1.0.8": "主路径重构为 NF 订阅驱动（实测结论）：NF 的资源管线由 NF 订阅驱动，/resources/search 只返回已完成匹配的待转存候选（未命中雷达缓存的标题返回 0）。改为 添加 NF 订阅（POST /subscriptions/add）→ 轮询 local_episodes 至稳定 → 移除 NF 订阅（POST /subscriptions/remove）交还追更主权 → 释放；新增 NF_GRABBING 状态、抓取窗口/超时配置（nf_grab_settle/nf_grab_timeout）与终态订阅泄漏补漏；适配器新增 add_subscription/remove_subscription。",
+      "v1.0.7": "修复通知未发送：post_message 须以关键字参数调用（位置参数会被当作 channel 校验失败且回退分支不可达）；新增通知调用形状回归测试。",
+      "v1.0.6": "修复 once-job 调度丢参：add_plugin_once_job 需经 func_kwargs 传递 task_key（宿主以无参方式调用 func，此前报 missing required positional argument）；新增调度器 func_kwargs 模拟宿主回归测试。",
+      "v1.0.5": "修复响应解析缺陷：httpx2/requests 的 .json() 返回已解析对象，此前误用 json.loads 二次解析导致所有 NF 调用报'无法解析 NF 响应'；新增 HTTP>=400 状态拦截与 6 个解析层回归测试。",
+      "v1.0.4": "修复 _startup_health_check 调用不存在方法 self._notify 导致宿主报错；抽取 _notify 通知辅助方法；健康检查日志补充错误类型与生效地址；HTTP timeout 改走 AsyncRequestUtils 构造器参数；新增未定义 self 方法静态检查回归测试。",
+      "v1.0.3": "关键修复：事件处理器补上 @eventmanager.register 注册（SubscribeAdded/SubscribeDeleted/PluginAction/PluginReload），此前宿主不会把订阅事件路由到插件，导致新增订阅无响应。",
+      "v1.0.2": "可观测性修复：启动日志与 NF 健康检查（延迟 5s，失败通知）；nf_base_url 自动补全 /api/openapi 前缀；看门狗心跳日志。",
+      "v1.0.1": "NF 官方智能体开发文档核对：新增 GET /quota 健康预检（准入条件）与 GET /logs 失败诊断富化；记录 local_library/filter、media/fill_missing、subscriptions/add 有意不用的理由。",
+      "v1.0.0": "首次发布：首次订阅 NF 优先 + 转存确认 + 原生定向补搜释放；竞速模式（宿主无 gate 能力）。"
+    }
+  }
+}
