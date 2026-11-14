@@ -20,5 +20,18 @@
       "v1.0.1": "NF 官方智能体开发文档核对：新增 GET /quota 健康预检（准入条件）与 GET /logs 失败诊断富化；记录 local_library/filter、media/fill_missing、subscriptions/add 有意不用的理由。",
       "v1.0.0": "首次发布：首次订阅 NF 优先 + 转存确认 + 原生定向补搜释放；竞速模式（宿主无 gate 能力）。"
     }
+  },
+  "EmbyMissingEpisodes": {
+    "name": "Emby 缺集扫描",
+    "description": "扫描已挂载 Emby 媒体库的剧集缺集，报告页可直接搜索或按季订阅补全。",
+    "labels": "媒体库,Emby,检查",
+    "version": "2.0.0",
+    "icon": "Emby_A.png",
+    "author": "local",
+    "level": 1,
+    "system_version": ">=3.2.0",
+    "history": {
+      "v2.0.0": "页面重构为 Vue 联邦 UI：标签页客户端即时切换、表格响应式布局适配窄屏（无横向滚动）、扫描进度实时轮询；新增 /report 分组键与 /options 配置项接口；配置页改由远程 Config 组件渲染"
+    }
   }
 }
