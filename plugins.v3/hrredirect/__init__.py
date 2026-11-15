@@ -2,6 +2,7 @@ import re
 from typing import Any, List, Optional, Tuple
 
 from app.plugins import _PluginBase
+from app.sdk.config import settings
 from app.sdk.events import Event, eventmanager
 from app.sdk.logging import logger
 from app.schemas import NotificationType, ServiceInfo
@@ -18,17 +19,17 @@ except ImportError:  # pragma: no cover - 老版本兜底
 
 class HRRedirect(_PluginBase):
     """
-    H&R 下载助手：命中 H&R 规则的资源改走配置的下载目录，并整体覆盖下载器标签，可选通知。
+    H&R 下载助手：命中 H&R 规则的资源改走配置的下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合，可选通知。
     """
 
     # 插件名称
     plugin_name = "H&R助手自用版"
     # 插件描述
-    plugin_desc = "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，并整体覆盖下载器标签、可选通知。"
+    plugin_desc = "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合、可选通知。"
     # 插件图标
     plugin_icon = "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/redirect.png"
     # 插件版本
-    plugin_version = "1.1.8"
+    plugin_version = "1.1.9"
     # 插件作者
     plugin_author = "x421637707"
     # 作者主页
@@ -212,11 +213,12 @@ class HRRedirect(_PluginBase):
                 site_name = site_name or "未知站点"
                 download_path = self._resolve_download_path() or ""
                 if applied:
+                    final_tags = self._final_tags()
                     text = (
                         f"🌐 站点：{site_name}\n"
                         f"📒 目录：{download_path or '（未配置）'}\n"
                         f"💾 大小：{StringUtils.str_filesize(getattr(torrent_info, 'size', 0) or 0)}\n"
-                        f"🏷️ 标签：{self._label or '（空）'}\n"
+                        f"🏷️ 标签：{'，'.join(final_tags) or '（空）'}\n"
                         f"📦 种子：{getattr(torrent_info, 'title', None) or '未知'}\n"
                         f"📝 描述：{getattr(torrent_info, 'description', None) or '（无）'}"
                     )
@@ -240,7 +242,10 @@ class HRRedirect(_PluginBase):
 
     def _apply_tags(self, torrent_hash: str, downloader_name: Optional[str]) -> bool:
         """
-        在指定下载器上整体覆盖任务标签；qBittorrent/Transmission 支持，其余跳过。
+        在指定下载器上覆盖任务标签为「H&R 标签 + 系统识别标签」组合；qBittorrent/Transmission 支持，其余跳过。
+
+        保留系统识别标签（TORRENT_TAG，支持逗号分隔多个）是因为 MoviePilot 自动整理
+        只扫描带识别标签的任务，整体覆盖会阻断下载完成后的自动入库。
         """
         if not downloader_name:
             logger.warn("[HRRedirect] 事件缺少下载器名称，跳过标签覆盖")
@@ -251,16 +256,17 @@ class HRRedirect(_PluginBase):
             logger.warn(f"[HRRedirect] 未找到下载器 {downloader_name}，跳过标签覆盖")
             return False
         stype = (getattr(service, "type", "") or "").lower()
+        final_tags = self._final_tags()
         try:
             if stype == "qbittorrent":
                 service.instance.qbc.torrents_set_tags(
-                    tags=[self._label] if self._label else [],
+                    tags=final_tags,
                     torrent_hashes=torrent_hash,
                 )
             elif stype == "transmission":
                 service.instance.trc.change_torrent(
                     ids=torrent_hash,
-                    labels=[self._label] if self._label else [],
+                    labels=final_tags,
                 )
             else:
                 logger.info(f"[HRRedirect] 下载器 {downloader_name}（{stype}）不支持标签，跳过")
@@ -275,8 +281,22 @@ class HRRedirect(_PluginBase):
             else:
                 logger.error(f"[HRRedirect] 覆盖标签失败（{downloader_name}）：{err_text}")
             return False
-        logger.info(f"[HRRedirect] 已覆盖任务 {torrent_hash} 标签为：{self._label or '（空）'}")
+        logger.info(f"[HRRedirect] 已覆盖任务 {torrent_hash} 标签为：{'，'.join(final_tags) or '（空）'}")
         return True
+
+    def _final_tags(self) -> List[str]:
+        """
+        计算最终覆盖标签：H&R 标签在前，其后拼接系统识别标签（settings.TORRENT_TAG，
+        支持逗号分隔多个），去空去重并保持顺序。
+        """
+        tags: List[str] = []
+        if self._label:
+            tags.append(self._label)
+        for tag in str(getattr(settings, "TORRENT_TAG", "") or "").split(","):
+            tag = tag.strip()
+            if tag and tag not in tags:
+                tags.append(tag)
+        return tags
 
     def _download_dir_options(self) -> List[dict]:
         """
@@ -371,7 +391,7 @@ class HRRedirect(_PluginBase):
                                             "model": "label",
                                             "label": "H&R 标签",
                                             "placeholder": "如：HR",
-                                            "hint": "下载后整体覆盖为该标签，留空则清空标签",
+                                            "hint": "下载后覆盖为「H&R 标签 + MP 识别标签」组合，自动整理依赖识别标签；留空则仅保留识别标签",
                                             "persistent-hint": True,
                                         },
                                     }

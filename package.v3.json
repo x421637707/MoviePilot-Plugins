@@ -14,9 +14,9 @@
   },
   "HRRedirect": {
     "name": "H&R助手自用版",
-    "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，并整体覆盖下载器标签、可选通知",
+    "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合、可选通知",
     "labels": "下载,H&R,标签,目录,通知",
-    "version": "1.1.8",
+    "version": "1.1.9",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/redirect.png",
     "author": "x421637707",
     "level": 1,
@@ -30,7 +30,8 @@
       "v1.1.5": "通知正文在站点行后新增「📒 目录」行，展示重定向下载路径",
       "v1.1.6": "插件作者署名改为 x421637707",
       "v1.1.7": "标签覆盖保留 MoviePilot 识别标签：最终标签 = H&R 标签 + 系统设置 TORRENT_TAG 拆分的识别标签（去空去重），修复覆盖标签后下载完成不触发自动整理的问题",
-      "v1.1.8": "回退 v1.1.7 标签保留行为，恢复整体覆盖（仅 H&R 标签）：与 Signal 媒体融合自动删种的 mponly 筛选冲突，保留 moviepilot 标签会导致 H&R 做种任务被自动删除；整理触发问题待后续另行方案解决"
+      "v1.1.8": "回退 v1.1.7 标签保留行为，恢复整体覆盖（仅 H&R 标签）：与 Signal 媒体融合自动删种的 mponly 筛选冲突，保留 moviepilot 标签会导致 H&R 做种任务被自动删除；整理触发问题待后续另行方案解决",
+      "v1.1.9": "恢复 v1.1.7 双标签行为（H&R 标签 + MP 识别标签，去空去重保序）：冲突根源已消除——Signal 删种模块已关闭，TorrentRemover 已支持排除标签（H&R 已预填），且自动整理只扫描带识别标签的任务，保留该标签可同时修复下载完成不触发整理的问题"
     }
   },
   "TorrentRemover": {
