@@ -92,7 +92,7 @@ class EmbyMissingEpisodes(_PluginBase):
     plugin_icon = "Emby_A.png"
     plugin_version = "2.0.0"
     plugin_label = "媒体库,Emby,检查"
-    plugin_author = "local"
+    plugin_author = "x421637707"
     plugin_config_prefix = "embymissingepisodes_"
     plugin_order = 61
     auth_level = 1

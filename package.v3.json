@@ -1,33 +1,11 @@
 {
-  "FirstNF": {
-    "name": "NF订阅兜底",
-    "description": "首次新增电视剧订阅时优先走 NextFind：向其添加订阅触发全量搜索+转存 115，入库稳定后移除 NF 订阅并交还 PT 追更，可选联动 CMS 整理；洗版订阅与后续追更不触发。",
-    "labels": "订阅",
-    "version": "1.0.9",
-    "icon": "Moviepilot_A.png",
-    "author": "firstnf-design",
-    "level": 1,
-    "system_version": ">=3.0.0",
-    "history": {
-      "v1.0.9": "新增 CMS 联动：转存完成后向 CMS 发送 Emby 入库 Webhook（POST {cms_domain}{cms_webhook_path}?token={cms_token}）触发其自动整理，与 CMSNotify 插件同一通道，失败非致命；设置页与详情页重做为卡片式分组布局（VRow/VCol/VCard/VAlert）；插件显示名改为「NF订阅兜底」。",
-      "v1.0.8": "主路径重构为 NF 订阅驱动（实测结论）：NF 的资源管线由 NF 订阅驱动，/resources/search 只返回已完成匹配的待转存候选（未命中雷达缓存的标题返回 0）。改为 添加 NF 订阅（POST /subscriptions/add）→ 轮询 local_episodes 至稳定 → 移除 NF 订阅（POST /subscriptions/remove）交还追更主权 → 释放；新增 NF_GRABBING 状态、抓取窗口/超时配置（nf_grab_settle/nf_grab_timeout）与终态订阅泄漏补漏；适配器新增 add_subscription/remove_subscription。",
-      "v1.0.7": "修复通知未发送：post_message 须以关键字参数调用（位置参数会被当作 channel 校验失败且回退分支不可达）；新增通知调用形状回归测试。",
-      "v1.0.6": "修复 once-job 调度丢参：add_plugin_once_job 需经 func_kwargs 传递 task_key（宿主以无参方式调用 func，此前报 missing required positional argument）；新增调度器 func_kwargs 模拟宿主回归测试。",
-      "v1.0.5": "修复响应解析缺陷：httpx2/requests 的 .json() 返回已解析对象，此前误用 json.loads 二次解析导致所有 NF 调用报'无法解析 NF 响应'；新增 HTTP>=400 状态拦截与 6 个解析层回归测试。",
-      "v1.0.4": "修复 _startup_health_check 调用不存在方法 self._notify 导致宿主报错；抽取 _notify 通知辅助方法；健康检查日志补充错误类型与生效地址；HTTP timeout 改走 AsyncRequestUtils 构造器参数；新增未定义 self 方法静态检查回归测试。",
-      "v1.0.3": "关键修复：事件处理器补上 @eventmanager.register 注册（SubscribeAdded/SubscribeDeleted/PluginAction/PluginReload），此前宿主不会把订阅事件路由到插件，导致新增订阅无响应。",
-      "v1.0.2": "可观测性修复：启动日志与 NF 健康检查（延迟 5s，失败通知）；nf_base_url 自动补全 /api/openapi 前缀；看门狗心跳日志。",
-      "v1.0.1": "NF 官方智能体开发文档核对：新增 GET /quota 健康预检（准入条件）与 GET /logs 失败诊断富化；记录 local_library/filter、media/fill_missing、subscriptions/add 有意不用的理由。",
-      "v1.0.0": "首次发布：首次订阅 NF 优先 + 转存确认 + 原生定向补搜释放；竞速模式（宿主无 gate 能力）。"
-    }
-  },
   "EmbyMissingEpisodes": {
     "name": "Emby 缺集扫描",
     "description": "扫描已挂载 Emby 媒体库的剧集缺集，报告页可直接搜索或按季订阅补全。",
     "labels": "媒体库,Emby,检查",
     "version": "2.0.0",
     "icon": "Emby_A.png",
-    "author": "local",
+    "author": "x421637707",
     "level": 1,
     "system_version": ">=3.2.0",
     "history": {
@@ -38,9 +16,9 @@
     "name": "H&R助手自用版",
     "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，并整体覆盖下载器标签、可选通知",
     "labels": "下载,H&R,标签,目录,通知",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/redirect.png",
-    "author": "local",
+    "author": "x421637707",
     "level": 1,
     "history": {
       "v1.0.0": "首个版本：ResourceDownload 前置改写 save_path，DownloadAdded 后置整体覆盖标签（qBittorrent/Transmission），支持站点兜底列表与通知开关；plugin_order=1 保证早于 downloadsitetag 执行",
@@ -49,7 +27,8 @@
       "v1.1.2": "修复消息推送不生效：插件重写 __init__ 未调用 super().__init__()，基类 chain/PluginChain 未创建导致 post_message 报 no attribute chain；插件名称改为 H&R助手自用版",
       "v1.1.3": "配置口径回调：目录下拉改回「H&R 下载目录」，标题与选项仅显示下载目录，不再展示整理入库路径",
       "v1.1.4": "通知改版：标题「🎯 H&R 任务」，正文按图标格式展示 站点/大小/标签/种子/描述，去 Hash 与下载目录，点击跳种子详情页",
-      "v1.1.5": "通知正文在站点行后新增「📒 目录」行，展示重定向下载路径"
+      "v1.1.5": "通知正文在站点行后新增「📒 目录」行，展示重定向下载路径",
+      "v1.1.6": "插件作者署名改为 x421637707"
     }
   }
 }
