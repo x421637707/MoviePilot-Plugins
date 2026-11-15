@@ -32,5 +32,18 @@
       "v1.1.7": "标签覆盖保留 MoviePilot 识别标签：最终标签 = H&R 标签 + 系统设置 TORRENT_TAG 拆分的识别标签（去空去重），修复覆盖标签后下载完成不触发自动整理的问题",
       "v1.1.8": "回退 v1.1.7 标签保留行为，恢复整体覆盖（仅 H&R 标签）：与 Signal 媒体融合自动删种的 mponly 筛选冲突，保留 moviepilot 标签会导致 H&R 做种任务被自动删除；整理触发问题待后续另行方案解决"
     }
+  },
+  "TorrentRemover": {
+    "name": "自动删种",
+    "description": "自动删除下载器中的下载任务（本地魔改：新增排除标签，命中则跳过不删）。",
+    "labels": "下载器,删种,排除标签",
+    "version": "2.4",
+    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/delete.jpg",
+    "author": "x421637707",
+    "level": 2,
+    "history": {
+      "v2.4": "本地魔改（基于 jxxghp 官方 v2.3）：新增「排除标签」——任务带任一排除标签时跳过不删（qB 读 tags 逗号分隔字符串、TR 读 labels 列表，逐任务匹配阶段判断，解析异常按跳过处理，宁可漏删不误删）；设置页新增排除标签输入框；典型场景：H&R 做种任务不被自动删种",
+      "v2.3": "作者原版（jxxghp）"
+    }
   }
 }
