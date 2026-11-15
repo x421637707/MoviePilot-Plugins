@@ -33,5 +33,23 @@
     "history": {
       "v2.0.0": "页面重构为 Vue 联邦 UI：标签页客户端即时切换、表格响应式布局适配窄屏（无横向滚动）、扫描进度实时轮询；新增 /report 分组键与 /options 配置项接口；配置页改由远程 Config 组件渲染"
     }
+  },
+  "HRRedirect": {
+    "name": "H&R助手自用版",
+    "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，并整体覆盖下载器标签、可选通知",
+    "labels": "下载,H&R,标签,目录,通知",
+    "version": "1.1.5",
+    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/redirect.png",
+    "author": "local",
+    "level": 1,
+    "history": {
+      "v1.0.0": "首个版本：ResourceDownload 前置改写 save_path，DownloadAdded 后置整体覆盖标签（qBittorrent/Transmission），支持站点兜底列表与通知开关；plugin_order=1 保证早于 downloadsitetag 执行",
+      "v1.1.0": "配置口径修正：目录项改为最终存储目录（按目录设置名称选择），选中后 H&R 资源重定向至该目录关联的下载目录，整理链按该目录配置自动入库到对应媒体库路径并继承整理方式；修复目录下拉为空（validate_download_save_path 多传 storage 参数）",
+      "v1.1.1": "修复标签覆盖不生效：v3 DownloadAdded 事件实际发送 dict 载荷（history.py event_payload），按 schema 属性访问报 dict object has no attribute hash，改为 dict/schema 双兼容读取",
+      "v1.1.2": "修复消息推送不生效：插件重写 __init__ 未调用 super().__init__()，基类 chain/PluginChain 未创建导致 post_message 报 no attribute chain；插件名称改为 H&R助手自用版",
+      "v1.1.3": "配置口径回调：目录下拉改回「H&R 下载目录」，标题与选项仅显示下载目录，不再展示整理入库路径",
+      "v1.1.4": "通知改版：标题「🎯 H&R 任务」，正文按图标格式展示 站点/大小/标签/种子/描述，去 Hash 与下载目录，点击跳种子详情页",
+      "v1.1.5": "通知正文在站点行后新增「📒 目录」行，展示重定向下载路径"
+    }
   }
 }
