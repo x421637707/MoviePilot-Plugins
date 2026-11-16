@@ -1,5 +1,50 @@
 import { _ as _export_sfc, a as __mf_13, b as __mf_2, m as __mf_6, n as __mf_14, d as __mf_15, e as __mf_18, f as __mf_16, g as __mf_9, o as __mf_7, p as __mf_5, q as __mf_8, j as __mf_19, k as __mf_10, h as __mf_12, r as __mf_4, s as __mf_17, l as __mf_11, t as __mf_3 } from './_plugin-vue_export-helper-C3ZlwhxB.js';
 
+// 宿主 vue-router 4 的 hash 模式只监听 popstate，<a href="#/..."> 只会改地址栏而不会触发路由跳转，
+// 所以报告页的「搜索」改为直接调用宿主 router.push 打开系统搜索页，hash 跳转仅作兜底。
+function __mpHostRouter() {
+  try {
+    const app = document.querySelector('#app')
+    const vueApp = app && app.__vue_app__
+    const props = vueApp && vueApp.config && vueApp.config.globalProperties
+    return props && props.$router ? props.$router : null
+  } catch (e) {
+    return null
+  }
+}
+
+function __mpPushHostRoute(path) {
+  const router = __mpHostRouter()
+  if (!router || typeof router.push !== 'function') return false
+  try {
+    router.push(path)
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.__mpEmbySearchBridge !== 2) {
+  window.__mpEmbySearchBridge = 2
+  document.addEventListener('click', (event) => {
+    const target = event.target
+    if (!target || typeof target.closest !== 'function') return
+    const anchor = target.closest('a[href^="#/browse/media/search"]')
+    if (!anchor) return
+    const href = anchor.getAttribute('href') || ''
+    if (__mpPushHostRoute(href.replace(/^#/, ''))) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    try {
+      window.location.hash = href
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      event.preventDefault()
+    } catch (e) {}
+  }, true)
+}
+
 const __mfPromiseGlobalKey = "__mf_init__virtual:mf:__mfe_internal__EmbyMissingEpisodes__mf_owner__273637801637908__mf_v__runtimeInit__mf_v__.js__";
 let __mfPromiseState = globalThis[__mfPromiseGlobalKey];
 if (!__mfPromiseState) {
