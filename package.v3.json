@@ -51,5 +51,24 @@
       "v2.4": "本地魔改（基于 jxxghp 官方 v2.3）：新增「排除标签」——任务带任一排除标签时跳过不删（qB 读 tags 逗号分隔字符串、TR 读 labels 列表，逐任务匹配阶段判断，解析异常按跳过处理，宁可漏删不误删）；设置页新增排除标签输入框；典型场景：H&R 做种任务不被自动删种",
       "v2.3": "作者原版（jxxghp）"
     }
+  },
+  "FollowUp": {
+    "name": "续作跟进（X自用版）",
+    "description": "根据媒体库或订阅历史检查系列续作并通知订阅",
+    "labels": "订阅",
+    "version": "3.1.2",
+    "icon": "",
+    "author": "Attente",
+    "level": 2,
+    "history": {
+      "v3.1.2": "恢复本地版两处健壮性修复：未配置媒体服务器时 get_media_server_items 返回空集合（此前返回 None，跟进任务在 union 时崩溃）；媒体库条目与订阅历史统一用 resolve_media_identity / normalize_media_source 解析 TMDB 身份，避免字段形态差异漏判",
+      "v3.1.1": "补齐本地仓的页面展示信息回填：待确认条目、已忽略条目缺标题/海报/播出日期，或电影合集缺海报时，跟进任务结束后自动从 TMDB 补全（每轮上限 100 条），避免旧版本推送的条目在页面显示为空",
+      "v3.1.0": "基于上游 3.0.0 内核恢复插件详情页处理能力：待确认条目可在页面追加订阅/忽略/批量处理，已忽略条目可取消忽略；推送时记录海报、播出日期等展示信息，并复用同一套处理逻辑供 TG 按钮调用",
+      "v3.0.0": "同步上游 3.0.0 内核：异步 TMDB 预检、v3 统一媒体身份、电影合集追踪",
+      "v1.6.0": "本地维护版：同步本地仓源码版本号至 1.6.0",
+      "v1.2.4": "订阅开始集数优化：优先使用 next_episode_to_air 中的 episode_number 作为 start_episode，确保订阅从即将播出的集数开始，而不是从订阅历史计算",
+      "v1.2.3": "修复 v3 下 _filter_media 仍用 tmdbid 调用 recognize_media 导致的定时任务崩溃：改为成对传 media_source=MediaSource.TMDB + media_id=str(tmdbid)",
+      "v1.2.2": "本地维护版：适配 MoviePilot v3 统一媒体身份（media_source + media_id），修复 Subscribe/SubscribeHistory 表已删除 tmdbid 列导致的定时任务崩溃；订阅历史改用 SubscribeHistoryOper 分页查询；媒体库条目改用 resolve_media_identity 取 TMDB ID；订阅写入改用统一身份字段"
+    }
   }
 }
