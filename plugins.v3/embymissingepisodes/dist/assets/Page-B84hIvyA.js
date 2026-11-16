@@ -1,7 +1,12 @@
 import { _ as _export_sfc, a as __mf_13, b as __mf_2, m as __mf_6, n as __mf_14, d as __mf_15, e as __mf_18, f as __mf_16, g as __mf_9, o as __mf_7, p as __mf_5, q as __mf_8, j as __mf_19, k as __mf_10, h as __mf_12, r as __mf_4, s as __mf_17, l as __mf_11, t as __mf_3 } from './_plugin-vue_export-helper-C3ZlwhxB.js';
 
-// 宿主 vue-router 4 的 hash 模式只监听 popstate，<a href="#/..."> 只会改地址栏而不会触发路由跳转，
-// 所以报告页的「搜索」改为直接调用宿主 router.push 打开系统搜索页，hash 跳转仅作兜底。
+// 报告页「搜索」跳宿主系统搜索页。
+// 宿主是 vue-router 4 的 hash 模式，只监听 popstate，<a href="#/..."> 只会改地址栏而不会触发路由跳转，
+// 因此这里直接调用宿主 router.push。插件页面可能以两种方式呈现：
+//   1) 路由页 /plugin-app/<id>（跳转后自然卸载）
+//   2) 宿主 PluginDataDialog 全屏 VDialog（跳转后对话框不会自动关闭，会盖住搜索页）
+// 所以跳转完成后还要主动关闭承载插件的对话框：优先点宿主自带的关闭按钮（会正常通知父组件），
+// 再退化为 scrim 点击与 Esc。
 function __mpHostRouter() {
   try {
     const app = document.querySelector('#app')
@@ -13,35 +18,67 @@ function __mpHostRouter() {
   }
 }
 
-function __mpPushHostRoute(path) {
-  const router = __mpHostRouter()
-  if (!router || typeof router.push !== 'function') return false
+function __mpClick(el) {
   try {
-    router.push(path)
+    if (!el || typeof el.click !== 'function') return false
+    el.click()
     return true
   } catch (e) {
     return false
   }
 }
 
-if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.__mpEmbySearchBridge !== 2) {
-  window.__mpEmbySearchBridge = 2
+function __mpCloseHostOverlay(anchor) {
+  try {
+    if (!anchor || typeof anchor.closest !== 'function') return false
+    const overlay = anchor.closest('.v-overlay--active') || anchor.closest('.v-overlay')
+    if (!overlay) return false
+    // 1) 宿主 PluginDataDialog（vue 模式）内置的原生关闭按钮，点击会 emit close 正常卸载
+    if (__mpClick(overlay.querySelector('[data-native-dialog-close]'))) return true
+    // 2) 宿主 VDialogCloseBtn（vuetify 模式）等带 aria-label 的关闭按钮
+    const btn = overlay.querySelector('.v-overlay__content button[aria-label], button[aria-label="Close"], button[aria-label="关闭"]')
+    if (__mpClick(btn)) return true
+    // 3) 兜底：点 scrim，再发一次 Esc
+    __mpClick(overlay.querySelector('.v-overlay__scrim'))
+    try {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }))
+    } catch (e) {}
+    return true
+  } catch (e) {
+    return false
+  }
+}
+
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.__mpEmbySearchBridge !== 4) {
+  window.__mpEmbySearchBridge = 4
   document.addEventListener('click', (event) => {
     const target = event.target
     if (!target || typeof target.closest !== 'function') return
     const anchor = target.closest('a[href^="#/browse/media/search"]')
     if (!anchor) return
     const href = anchor.getAttribute('href') || ''
-    if (__mpPushHostRoute(href.replace(/^#/, ''))) {
-      event.preventDefault()
-      event.stopPropagation()
-      return
+    if (!href) return
+    event.preventDefault()
+    event.stopPropagation()
+    const finish = () => {
+      setTimeout(() => {
+        __mpCloseHostOverlay(anchor)
+      }, 30)
+    }
+    const router = __mpHostRouter()
+    if (router && typeof router.push === 'function') {
+      try {
+        const pending = router.push(href.replace(/^#/, ''))
+        if (pending && typeof pending.then === 'function') pending.then(finish, finish)
+        else finish()
+        return
+      } catch (e) {}
     }
     try {
       window.location.hash = href
       window.dispatchEvent(new PopStateEvent('popstate'))
-      event.preventDefault()
     } catch (e) {}
+    finish()
   }, true)
 }
 

@@ -90,7 +90,7 @@ class EmbyMissingEpisodes(_PluginBase):
     plugin_name = "Emby 缺集扫描"
     plugin_desc = "扫描已挂载 Emby 媒体库的剧集缺集，报告页可直接搜索或按季订阅补全。"
     plugin_icon = "Emby_A.png"
-    plugin_version = "2.0.2"
+    plugin_version = "2.0.4"
     plugin_label = "媒体库,Emby,检查"
     plugin_author = "x421637707"
     plugin_config_prefix = "embymissingepisodes_"
