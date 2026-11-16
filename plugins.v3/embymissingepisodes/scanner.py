@@ -233,6 +233,9 @@ class MissingEpisodeScanner:
         seasons = self._tmdb.tmdb_seasons(tmdbid=int(tmdb_id)) or []
         deadline = date.today() - timedelta(days=self._config["air_buffer_days"])
         rows: List[Dict[str, Any]] = []
+        # 剧集主海报在首次遇到季海报缺失时才识别，避免每部剧都多一次请求
+        series_poster = ""
+        series_poster_checked = False
         for season in seasons:
             if self._stop_event.is_set():
                 break
@@ -256,6 +259,11 @@ class MissingEpisodeScanner:
             missing = sorted(set(aired) - existing)
             if not missing:
                 continue
+            season_poster = poster_url(getattr(season, "poster_path", None))
+            if not season_poster and not series_poster_checked:
+                # 季海报缺失时回退剧集主海报，同一部剧只识别一次
+                series_poster = self._series_poster(tmdb_id)
+                series_poster_checked = True
             rows.append(
                 {
                     "server": server_name,
@@ -269,12 +277,32 @@ class MissingEpisodeScanner:
                     "aired": len(aired),
                     "existing": len(existing & set(aired)),
                     # 季海报优先，缺失时回退剧集主海报
-                    "poster": poster_url(
-                        getattr(season, "poster_path", None)
-                    ),
+                    "poster": season_poster or series_poster,
                 }
             )
         return rows
+
+    def _series_poster(self, tmdb_id: str) -> str:
+        """读取剧集主海报，供季海报缺失时回退展示。"""
+        if not self._recognize:
+            return ""
+        try:
+            mediainfo = self._recognize(
+                mtype=MediaType.TV,
+                media_source=MediaSource.TMDB,
+                media_id=str(tmdb_id),
+            )
+        except Exception as err:  # noqa: BLE001 - 海报缺失不影响缺集统计
+            logger.warning(f"Emby 缺集扫描：读取剧集主海报失败：{err}")
+            return ""
+        poster = poster_url(getattr(mediainfo, "poster_path", None)) if mediainfo else ""
+        # 识别结果使用 TMDB_IMAGE_URL 的大尺寸地址，统一收敛为列表用的 w300
+        if poster.startswith("http") and "/t/p/" in poster:
+            head, _, tail = poster.partition("/t/p/")
+            _, sep, rest = tail.partition("/")
+            if sep and rest:
+                poster = f"{head}/t/p/w300/{rest}"
+        return poster
 
     def _tmdb_id(self, item: Any) -> Optional[str]:
         """读取条目的 TMDB ID，缺失时按标题回退识别。"""

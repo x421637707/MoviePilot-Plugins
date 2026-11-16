@@ -340,7 +340,8 @@ function rowLocation(row) {
 }
 
 function searchHref(row) {
-  return `#/search?keyword=${encodeURIComponent(String(row?.title || ''))}`
+  const title = encodeURIComponent(String(row?.title || ''));
+  return `#/browse/media/search?title=${title}&type=media`
 }
 
 function episodeText(row) {
@@ -656,8 +657,7 @@ return (_ctx, _cache) => {
                                                 variant: "tonal",
                                                 color: "primary",
                                                 "prepend-icon": "mdi-magnify",
-                                                href: searchHref(row),
-                                                target: "_blank"
+                                                href: searchHref(row)
                                               }, {
                                                 default: __mf_19(() => [...(_cache[7] || (_cache[7] = [
                                                   __mf_11("搜索", -1)
@@ -717,7 +717,7 @@ return (_ctx, _cache) => {
                                                 width: "48",
                                                 "aspect-ratio": "2/3",
                                                 cover: "",
-                                                class: "rounded flex-shrink-0"
+                                                class: "rounded flex-shrink-0 flex-grow-0"
                                               }, null, 8, ["src"]))
                                             : (__mf_16(), __mf_9("div", _hoisted_18, [
                                                 __mf_12(_component_v_icon, {
@@ -759,8 +759,7 @@ return (_ctx, _cache) => {
                                                 size: "small",
                                                 variant: "tonal",
                                                 color: "primary",
-                                                href: searchHref(row),
-                                                target: "_blank"
+                                                href: searchHref(row)
                                               }, {
                                                 default: __mf_19(() => [...(_cache[10] || (_cache[10] = [
                                                   __mf_11("搜索", -1)
