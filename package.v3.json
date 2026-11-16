@@ -15,7 +15,7 @@
     }
   },
   "HRRedirect": {
-    "name": "H&R助手自用版",
+    "name": "H&R助手（X魔改版）",
     "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合、可选通知",
     "labels": "下载,H&R,标签,目录,通知",
     "version": "1.1.9",

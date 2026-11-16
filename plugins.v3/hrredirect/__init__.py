@@ -23,7 +23,7 @@ class HRRedirect(_PluginBase):
     """
 
     # 插件名称
-    plugin_name = "H&R助手自用版"
+    plugin_name = "H&R助手（X魔改版）"
     # 插件描述
     plugin_desc = "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合、可选通知。"
     # 插件图标
