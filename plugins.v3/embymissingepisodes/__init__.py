@@ -20,7 +20,7 @@ from app.sdk.logging import logger
 from app.sdk.plugin import _PluginBase
 from app.sdk.services import MediaServerHelper
 
-from .page import build_summary_text, row_key
+from .page import build_change_text, row_key
 from .scanner import DEFAULT_CONFIG, MissingEpisodeScanner, normalize_config
 
 # 一次性扫描任务 ID
@@ -87,10 +87,10 @@ class OptionsData(BaseModel):
 class EmbyMissingEpisodes(_PluginBase):
     """Emby 缺集扫描插件主类：管理配置、定时与手动扫描、报告页和补全接口。"""
 
-    plugin_name = "Emby 缺集扫描"
+    plugin_name = "Emby 缺集扫描（X魔改版）"
     plugin_desc = "扫描已挂载 Emby 媒体库的剧集缺集，报告页可直接搜索或按季订阅补全。"
     plugin_icon = "Emby_A.png"
-    plugin_version = "2.0.4"
+    plugin_version = "2.0.5"
     plugin_label = "媒体库,Emby,检查"
     plugin_author = "x421637707"
     plugin_config_prefix = "embymissingepisodes_"
@@ -296,14 +296,16 @@ class EmbyMissingEpisodes(_PluginBase):
 
     def api_report(self) -> Response[ReportView]:
         """返回最近一次缺集报告，附已忽略与已订阅分组键。"""
+        report = self._load_report()
+        rows = list((report or {}).get("rows") or [])
         return Response(
             success=True,
             data=ReportView(
                 running=self._is_running(),
                 progress=self._progress,
-                report=self._load_report(),
+                report=report,
                 ignored_keys=self._config.get("ignored") or [],
-                subscribed_keys=self._subscribed_keys(),
+                subscribed_keys=self._subscribed_keys(rows),
             ),
         )
 
@@ -354,6 +356,7 @@ class EmbyMissingEpisodes(_PluginBase):
                 progress=self._set_progress,
                 recognize=self.chain.recognize_media,
             )
+            previous_report = self._load_report()
             logger.info("Emby 缺集扫描：开始扫描")
             report = scanner.scan()
             if report.get("cancelled"):
@@ -365,11 +368,21 @@ class EmbyMissingEpisodes(_PluginBase):
                 f"{len(report.get('rows') or [])} 条缺集，耗时 {report.get('duration')} 秒"
             )
             if self._config["notify"]:
-                self.post_message(
-                    mtype=MessageType.Plugin,
-                    title="【Emby 缺集扫描】扫描完成",
-                    text=build_summary_text(report, self._config.get("ignored") or []),
+                rows = list(report.get("rows") or [])
+                text = build_change_text(
+                    report,
+                    previous=previous_report,
+                    ignored_keys=self._config.get("ignored") or [],
+                    subscribed_keys=self._subscribed_keys(rows),
                 )
+                if text:
+                    self.post_message(
+                        mtype=MessageType.Plugin,
+                        title="【Emby 缺集扫描】新增待处理",
+                        text=text,
+                    )
+                else:
+                    logger.info("Emby 缺集扫描：没有新增的待处理缺集，本次不发送通知")
         except Exception as err:  # noqa: BLE001 - 后台任务需记录异常而不是静默退出
             logger.error(f"Emby 缺集扫描：扫描失败：{err}", exc_info=True)
         finally:
@@ -403,10 +416,15 @@ class EmbyMissingEpisodes(_PluginBase):
         """记录当前扫描进度。"""
         self._progress = str(text or "")
 
-    def _subscribed_keys(self) -> List[str]:
-        """按报告行查询订阅状态，返回已订阅条目键列表。"""
-        report = self._load_report()
-        rows = list((report or {}).get("rows") or [])
+    def _subscribed_keys(self, rows: Optional[List[Dict[str, Any]]] = None) -> List[str]:
+        """按报告行查询订阅状态，返回已订阅条目键列表。
+
+        :param rows: 报告行列表，省略时读取最近一次报告
+        """
+        if rows is None:
+            report = self._load_report()
+            rows = list((report or {}).get("rows") or [])
+        rows = list(rows or [])
         if not rows:
             return []
         keys: List[str] = []

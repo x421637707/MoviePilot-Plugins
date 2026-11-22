@@ -265,15 +265,19 @@ def _row_actions(row: Dict[str, Any], plugin_id: str, ignored: bool) -> List[dic
     return actions
 
 
+def _episode_list_text(numbers: List[int], max_items: int = 12) -> str:
+    """把集号列表压缩成可读文本。"""
+    if not numbers:
+        return ""
+    if len(numbers) <= max_items:
+        return "、".join(f"E{number:02d}" for number in numbers)
+    head = "、".join(f"E{number:02d}" for number in numbers[:max_items])
+    return f"{head} 等 {len(numbers)} 集"
+
+
 def _episode_text(row: Dict[str, Any]) -> str:
     """把缺失集号列表压缩成可读文本。"""
-    missing = [int(number) for number in row.get("missing") or []]
-    if not missing:
-        return ""
-    if len(missing) <= 12:
-        return "、".join(f"E{number:02d}" for number in missing)
-    head = "、".join(f"E{number:02d}" for number in missing[:12])
-    return f"{head} 等 {len(missing)} 集"
+    return _episode_list_text([int(number) for number in row.get("missing") or []])
 
 
 def _report_row(row: Dict[str, Any], plugin_id: str, status: str, ignored: bool) -> dict:
@@ -625,25 +629,63 @@ def build_page(
     return content
 
 
-def build_summary_text(report: Dict[str, Any], ignored_keys: Optional[List[str]] = None) -> str:
-    """生成扫描完成通知的文本摘要，已忽略条目不计入提醒。"""
+def build_change_text(
+    report: Dict[str, Any],
+    previous: Optional[Dict[str, Any]] = None,
+    ignored_keys: Optional[List[str]] = None,
+    subscribed_keys: Optional[List[str]] = None,
+    limit: int = 10,
+) -> str:
+    """生成增量通知文本，只列出相对上次扫描新增的待处理缺集；没有新增时返回空字符串。
+
+    :param report: 本次扫描报告
+    :param previous: 上一次扫描报告，为空时视为首次扫描
+    :param ignored_keys: 已忽略条目键列表
+    :param subscribed_keys: 已订阅条目键列表
+    :param limit: 通知正文最多列出的条目数
+    """
     ignored = set(ignored_keys or [])
-    rows = [row for row in (report.get("rows") or []) if _row_key(row) not in ignored]
-    ignored_count = len(report.get("rows") or []) - len(rows)
-    lines = [
-        f"扫描时间：{report.get('scanned_at') or '-'}",
-        f"剧集数量：{report.get('series') or 0} 部",
-        f"缺集条目：{len(rows)} 条",
+    subscribed = set(subscribed_keys or [])
+    previous_rows: Dict[str, set] = {}
+    for row in (previous or {}).get("rows") or []:
+        previous_rows[_row_key(row)] = {
+            int(number) for number in row.get("missing") or [] if number
+        }
+    current_rows = list(report.get("rows") or [])
+    pending = [
+        row
+        for row in current_rows
+        if _row_key(row) not in ignored and _row_key(row) not in subscribed
     ]
-    for row in rows[:10]:
+    changes: List[tuple] = []
+    for row in pending:
+        missing = [int(number) for number in row.get("missing") or [] if number]
+        old_numbers = previous_rows.get(_row_key(row))
+        if old_numbers is None:
+            changes.append((row, missing, False))
+            continue
+        fresh = [number for number in missing if number not in old_numbers]
+        if fresh:
+            changes.append((row, fresh, True))
+    if not changes:
+        return ""
+    if previous is None:
+        lines = [f"首次扫描：{len(pending)} 条待处理缺集（缺集总计 {len(current_rows)} 条）"]
+    else:
+        lines = [
+            f"新增 {len(changes)} 条待处理缺集"
+            f"（当前待处理 {len(pending)} 条，缺集总计 {len(current_rows)} 条）"
+        ]
+    for row, numbers, partial in changes[:limit]:
         title = str(row.get("title") or "")
         if row.get("year"):
             title = f"{title}（{row['year']}）"
-        lines.append(f"· {title} S{int(row.get('season') or 0):02d}：{_episode_text(row)}")
-    if len(rows) > 10:
-        lines.append(f"……另有 {len(rows) - 10} 条，详见插件报告页")
-    if ignored_count:
-        lines.append(f"已忽略 {ignored_count} 条（不提醒）")
+        prefix = "新增 " if partial else ""
+        lines.append(
+            f"· {title} S{int(row.get('season') or 0):02d}：{prefix}{_episode_list_text(numbers)}"
+        )
+    if len(changes) > limit:
+        lines.append(f"……另有 {len(changes) - limit} 条，详见插件报告页")
     errors = list(report.get("errors") or [])
     if errors:
         lines.append(f"跳过/异常：{len(errors)} 条")
