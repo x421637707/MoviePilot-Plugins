@@ -51,13 +51,13 @@ class FollowUpConfig(BaseModel):
 
 class FollowUp(_PluginBase):
     # 插件名称
-    plugin_name = "续作跟进（X自用版）"
+    plugin_name = "续作跟进（X魔改版）"
     # 插件描述
     plugin_desc = "根据媒体库或订阅历史检查系列续作并通知订阅"
     # 插件图标
     plugin_icon = ""
     # 插件版本
-    plugin_version = "3.1.2"
+    plugin_version = "3.1.3"
     # 插件作者
     plugin_author = "Attente"
     # 作者主页
