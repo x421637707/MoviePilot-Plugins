@@ -16,13 +16,13 @@ from app.sdk.media import MetaVideo, Tokens
 
 class SubscribeGroupMod(_PluginBase):
     # 插件名称
-    plugin_name = "订阅规则自动填充魔改版"
+    plugin_name = "订阅规则自动填充（X魔改版）"
     # 插件描述
     plugin_desc = "电视剧下载后自动添加官组等信息到订阅；添加订阅后根据二级分类名称自定义订阅规则。"
     # 插件图标
     plugin_icon = "teamwork.png"
     # 插件版本
-    plugin_version = "3.0.3"
+    plugin_version = "3.0.4"
     # 插件作者
     plugin_author = "thsrite,Seed680"
     # 作者主页
