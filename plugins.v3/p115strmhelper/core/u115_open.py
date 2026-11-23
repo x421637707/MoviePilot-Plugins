@@ -287,6 +287,7 @@ class U115OpenHelper:
             file_size: int,
             elapsed_time: Optional[float] = None,
             error_msg: Optional[str] = None,
+            seconds_upload: bool = False,
         ):
             """
             发送上传结果通知
@@ -296,8 +297,12 @@ class U115OpenHelper:
             :param file_size: 文件大小
             :param elapsed_time: 耗时（秒）
             :param error_msg: 错误信息
+            :param seconds_upload: 是否为秒传结果（秒传成功不发送上传完成通知）
             """
             if not configer.notify or not configer.upload_open_result_notify:
+                return
+            # 只有真正切片上传的结果才通知；秒传成功不算上传
+            if seconds_upload and success:
                 return
 
             notifier.add(
@@ -415,6 +420,7 @@ class U115OpenHelper:
                     target_name=target_name,
                     file_size=file_size,
                     elapsed_time=elapsed_time,
+                    seconds_upload=True,
                 )
                 file_id = init_result.get("file_id", None)
                 if file_id:

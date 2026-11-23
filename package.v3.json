@@ -103,7 +103,7 @@
     "name": "115网盘STRM助手（X魔改版）",
     "description": "115网盘STRM生成一条龙服务",
     "labels": "云盘",
-    "version": "3.0.3",
+    "version": "3.0.4",
     "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Frontend/refs/heads/v2/src/assets/images/misc/u115.png",
     "author": "x421637707",
     "release": false,
