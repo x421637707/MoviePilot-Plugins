@@ -1,23 +1,4 @@
 {
-  "EmbyMissingEpisodes": {
-    "name": "Emby 缺集扫描（X魔改版）",
-    "description": "扫描已挂载 Emby 媒体库的剧集缺集，报告页展示海报并按缺集/已订阅/已忽略筛选，支持搜索、按季订阅与忽略",
-    "labels": "媒体库,Emby,检查",
-    "version": "2.0.5",
-    "icon": "Emby_A.png",
-    "author": "x421637707",
-    "level": 1,
-    "history": {
-      "v1.0.0": "本地自研：遍历 Emby 剧集库，与 TMDB 已播出集号对比生成缺集报告；报告页提供搜索跳转与按季订阅入口；支持定时扫描与完成通知",
-      "v1.1.0": "界面优化：报告表格增加海报列；新增待处理/已订阅/已忽略/全部四个状态筛选页签；条目可忽略与取消忽略，忽略项不再计入通知",
-      "v2.0.0": "Vue 联邦页面重构：报告页改为前端组件渲染，支持搜索跳转、按季订阅、忽略与扫描进度轮询",
-      "v2.0.1": "修复三项：季海报缺失时回退剧集主海报；报告页搜索跳转改为正确的媒体搜索路由（原来指向不存在的 /search 会退回主界面）；手机端卡片海报固定 48×72 不再被 flex 拉宽",
-      "v2.0.2": "修复报告页「搜索」点击无效：宿主 vue-router 4 的 hash 模式只监听 popstate，普通 #/... 链接只会改地址栏不会跳转；改为直接调用宿主 router.push 打开系统媒体搜索页（与搜索框同一路由），hash 跳转仅作兜底",
-      "v2.0.3": "修复报告页「搜索」跳转后插件页不关闭：插件页常以宿主 PluginDataDialog 全屏对话框承载，路由切换不会自动关闭该对话框、会盖住搜索页；跳转完成后主动关闭承载插件的 VOverlay（scrim 点击 + Esc 兜底）",
-      "v2.0.4": "修复报告页「搜索」跳转后插件页仍盖住搜索页：改为点击宿主 PluginDataDialog 内置关闭按钮（data-native-dialog-close），正常通知父组件卸载插件对话框；scrim 点击与 Esc 仅作兜底",
-      "v2.0.5": "通知精简：扫描完成通知改为增量提醒，只列出相对上次扫描新增的待处理缺集（已忽略、已订阅条目不计入），同一条目新增缺失集号也会单独提示；没有新增时不发通知"
-    }
-  },
   "HRRedirect": {
     "name": "H&R助手（X魔改版）",
     "description": "命中 H&R（Hit & Run）规则的资源自动改走所选下载目录，标签覆盖为 H&R 标签 + MP 识别标签组合、可选通知",
@@ -40,19 +21,6 @@
       "v1.1.9": "恢复 v1.1.7 双标签行为（H&R 标签 + MP 识别标签，去空去重保序）：冲突根源已消除——Signal 删种模块已关闭，TorrentRemover 已支持排除标签（H&R 已预填），且自动整理只扫描带识别标签的任务，保留该标签可同时修复下载完成不触发整理的问题"
     }
   },
-  "TorrentRemover": {
-    "name": "自动删种（X魔改版）",
-    "description": "自动删除下载器中的下载任务（本地魔改：新增排除标签，命中则跳过不删）。",
-    "labels": "下载器,删种,排除标签",
-    "version": "2.4",
-    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/delete.jpg",
-    "author": "x421637707",
-    "level": 2,
-    "history": {
-      "v2.4": "本地魔改（基于 jxxghp 官方 v2.3）：新增「排除标签」——任务带任一排除标签时跳过不删（qB 读 tags 逗号分隔字符串、TR 读 labels 列表，逐任务匹配阶段判断，解析异常按跳过处理，宁可漏删不误删）；设置页新增排除标签输入框；典型场景：H&R 做种任务不被自动删种",
-      "v2.3": "作者原版（jxxghp）"
-    }
-  },
   "FollowUp": {
     "name": "续作跟进（X魔改版）",
     "description": "根据媒体库或订阅历史检查系列续作并通知订阅",
@@ -72,6 +40,18 @@
       "v1.2.2": "本地维护版：适配 MoviePilot v3 统一媒体身份（media_source + media_id），修复 Subscribe/SubscribeHistory 表已删除 tmdbid 列导致的定时任务崩溃；订阅历史改用 SubscribeHistoryOper 分页查询；媒体库条目改用 resolve_media_identity 取 TMDB ID；订阅写入改用统一身份字段"
     }
   },
+  "ZspaceSysMsg": {
+    "name": "极空间系统通知（X魔改版）",
+    "description": "将极空间系统消息推送到MP的消息渠道",
+    "labels": "通知",
+    "version": "1.1.0",
+    "icon": "Zspace_A.png",
+    "author": "gxterry",
+    "level": 1,
+    "history": {
+      "v1.1.0": "本地维护版：修复 v3 下 RequestUtils.cookie_parse 不存在（改用 app.adapters.network.http.cookie_parse）；修复 cookie['token'] 键不存在（极空间新固件使用 zenithtoken）；将 cookie 解析移入 try/except 避免异常被 APScheduler 静默吞掉；增加未配置/无 token 的明确日志"
+    }
+  },
   "SubscribeGroupMod": {
     "name": "订阅规则自动填充（X魔改版）",
     "description": "电视剧下载后自动添加官组等信息到订阅；添加订阅后根据二级分类名称自定义订阅规则。",
@@ -87,16 +67,52 @@
       "v3.0.1": "作者原版"
     }
   },
-  "ZspaceSysMsg": {
-    "name": "极空间系统通知（X魔改版）",
-    "description": "将极空间系统消息推送到MP的消息渠道",
-    "labels": "通知",
-    "version": "1.1.0",
-    "icon": "Zspace_A.png",
-    "author": "gxterry",
+  "EmbyMissingEpisodes": {
+    "name": "Emby 缺集扫描（X魔改版）",
+    "description": "扫描已挂载 Emby 媒体库的剧集缺集，报告页展示海报并按缺集/已订阅/已忽略筛选，支持搜索、按季订阅与忽略",
+    "labels": "媒体库,Emby,检查",
+    "version": "2.0.5",
+    "icon": "Emby_A.png",
+    "author": "x421637707",
     "level": 1,
     "history": {
-      "v1.1.0": "本地维护版：修复 v3 下 RequestUtils.cookie_parse 不存在（改用 app.adapters.network.http.cookie_parse）；修复 cookie['token'] 键不存在（极空间新固件使用 zenithtoken）；将 cookie 解析移入 try/except 避免异常被 APScheduler 静默吞掉；增加未配置/无 token 的明确日志"
+      "v1.0.0": "本地自研：遍历 Emby 剧集库，与 TMDB 已播出集号对比生成缺集报告；报告页提供搜索跳转与按季订阅入口；支持定时扫描与完成通知",
+      "v1.1.0": "界面优化：报告表格增加海报列；新增待处理/已订阅/已忽略/全部四个状态筛选页签；条目可忽略与取消忽略，忽略项不再计入通知",
+      "v2.0.0": "Vue 联邦页面重构：报告页改为前端组件渲染，支持搜索跳转、按季订阅、忽略与扫描进度轮询",
+      "v2.0.1": "修复三项：季海报缺失时回退剧集主海报；报告页搜索跳转改为正确的媒体搜索路由（原来指向不存在的 /search 会退回主界面）；手机端卡片海报固定 48×72 不再被 flex 拉宽",
+      "v2.0.2": "修复报告页「搜索」点击无效：宿主 vue-router 4 的 hash 模式只监听 popstate，普通 #/... 链接只会改地址栏不会跳转；改为直接调用宿主 router.push 打开系统媒体搜索页（与搜索框同一路由），hash 跳转仅作兜底",
+      "v2.0.3": "修复报告页「搜索」跳转后插件页不关闭：插件页常以宿主 PluginDataDialog 全屏对话框承载，路由切换不会自动关闭该对话框、会盖住搜索页；跳转完成后主动关闭承载插件的 VOverlay（scrim 点击 + Esc 兜底）",
+      "v2.0.4": "修复报告页「搜索」跳转后插件页仍盖住搜索页：改为点击宿主 PluginDataDialog 内置关闭按钮（data-native-dialog-close），正常通知父组件卸载插件对话框；scrim 点击与 Esc 仅作兜底",
+      "v2.0.5": "通知精简：扫描完成通知改为增量提醒，只列出相对上次扫描新增的待处理缺集（已忽略、已订阅条目不计入），同一条目新增缺失集号也会单独提示；没有新增时不发通知"
+    }
+  },
+  "TorrentRemover": {
+    "name": "自动删种（X魔改版）",
+    "description": "自动删除下载器中的下载任务（本地魔改：新增排除标签，命中则跳过不删）。",
+    "labels": "下载器,删种,排除标签",
+    "version": "2.4",
+    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Plugins/main/icons/delete.jpg",
+    "author": "x421637707",
+    "level": 2,
+    "history": {
+      "v2.4": "本地魔改（基于 jxxghp 官方 v2.3）：新增「排除标签」——任务带任一排除标签时跳过不删（qB 读 tags 逗号分隔字符串、TR 读 labels 列表，逐任务匹配阶段判断，解析异常按跳过处理，宁可漏删不误删）；设置页新增排除标签输入框；典型场景：H&R 做种任务不被自动删种",
+      "v2.3": "作者原版（jxxghp）"
+    }
+  },
+  "P115StrmHelper": {
+    "name": "115网盘STRM助手（X魔改版）",
+    "description": "115网盘STRM生成一条龙服务",
+    "labels": "云盘",
+    "version": "3.0.3",
+    "icon": "https://raw.githubusercontent.com/jxxghp/MoviePilot-Frontend/refs/heads/v2/src/assets/images/misc/u115.png",
+    "author": "x421637707",
+    "release": false,
+    "system_version": ">=3.0.0",
+    "v3t": false,
+    "level": 1,
+    "history": {
+      "v3.0.3": "本地维护版（基于上游 DDSRem 3.0.2）：秒传测速等待逻辑改为 fast 状态也进入等待分支（仅 undetermined 跳过），配合关闭「强制等待文件大小」阈值，避免 1MB 以上文件无条件干等 300 秒；core/u115_open.py 与 core/p115disk.py 两个存储模块同步调整",
+      "v3.0.2": "上游 3.0.2：修复清空 STRM 链接地址后插件加载失败（#476）、秒传显示大小取整误判（#475）；恢复整理后处理记录列表、适配 V3 覆盖整理参数、优化 Emby 刷新与通知接口"
     }
   }
 }
