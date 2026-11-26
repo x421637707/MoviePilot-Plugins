@@ -725,6 +725,15 @@ class ConfigManager(BaseModel):
     offline_download_paths: Optional[List] = Field(
         default_factory=list, description="离线下载目录"
     )
+    offline_retry_enabled: bool = Field(
+        default=False, description="离线下载失败自动重试"
+    )
+    offline_retry_max_attempts: int = Field(
+        default=3, ge=1, le=100, description="每个离线任务自动重试次数上限"
+    )
+    offline_retry_interval_hours: int = Field(
+        default=24, ge=1, le=8760, description="离线下载失败重试间隔（小时）"
+    )
 
     fuse_enabled: bool = Field(default=False, description="FUSE 文件系统开关")
     fuse_mountpoint: Optional[str] = Field(default=None, description="FUSE 挂载点路径")
@@ -763,6 +772,21 @@ class ConfigManager(BaseModel):
     )
     directory_upload_skip_bdmv_stream: bool = Field(
         default=True, description="跳过蓝光原盘 STREAM 目录"
+    )
+    directory_upload_rescan_enabled: bool = Field(
+        default=True, description="启用目录上传漏传巡检"
+    )
+    directory_upload_rescan_interval: int = Field(
+        default=10,
+        ge=1,
+        le=1440,
+        description="目录上传漏传巡检间隔（分钟）",
+    )
+    directory_upload_rescan_max_submit: int = Field(
+        default=300,
+        ge=1,
+        le=10000,
+        description="目录上传漏传巡检单轮提交上限",
     )
     directory_upload_path: Optional[List[Dict]] = Field(
         default=None, description="监控目录信息"
@@ -835,6 +859,14 @@ class ConfigManager(BaseModel):
         default=None,
         ge=0,
         description="115 上传秒传失败后跳过上传的文件大小阈值（大于此值的文件将跳过上传）",
+    )
+    upload_module_recheck_secupload: bool = Field(
+        default=False, description="115 上传增强分片上传期间复判秒传"
+    )
+    upload_module_recheck_secupload_interval: int = Field(
+        default=5 * 60,
+        ge=0,
+        description="115 上传增强分片上传期间复判秒传的间隔（秒），0 表示使用默认值",
     )
     upload_share_info: bool = Field(default=True, description="上传分享链接")
     upload_offline_info: bool = Field(default=True, description="上传离线下载链接")
@@ -965,7 +997,7 @@ class ConfigManager(BaseModel):
         """
         返回 p115center 许可证
         """
-        return "87b7a0335d84ac7777e179b5e5d8d5adf2e69df0b80da62aa0b752757aaf0845"
+        return "b4242c3e13b4698e7aa5f410ee369456a0dd0a5d024aeb80aa00dcb1e7715208"
 
     @property
     def plugin_aligo_path(self) -> Path:

@@ -22,6 +22,14 @@ from app.chain.storage import StorageChain
 from app.schemas.types import MediaType, MediaImageType, MessageType, MediaSource
 from app.schemas.mediaserver import WebhookEventInfo
 
+from .p115_cleanup import (
+    P115Cleaner,
+    select_video_suffix,
+    valid_container_suffix,
+    dir_event_allowed,
+    is_video_library_item,
+    looks_like_media_file,
+)
 from ...core.config import configer
 from ...core.i18n import i18n
 from ...core.message import post_message
@@ -31,6 +39,80 @@ from ...helper.mediaserver import EmbyOperate
 from ...utils.path import PathUtils, PathRemoveUtils
 from ...utils.sentry import sentry_manager
 from ...utils.webhook import WebhookUtils
+
+
+# 媒体文件同名旁挂文件的后缀：同目录下与视频主干相同，但不是可删除的媒体本体
+_NON_MEDIA_SIDECAR_EXTENSIONS = frozenset(
+    {
+        "nfo",
+        "srt",
+        "ass",
+        "ssa",
+        "sub",
+        "idx",
+        "sup",
+        "vtt",
+        "jpg",
+        "jpeg",
+        "png",
+        "webp",
+        "bmp",
+        "gif",
+        "torrent",
+        "txt",
+        "log",
+        "db",
+        "xml",
+        "json",
+        "url",
+        "lnk",
+        "ini",
+        "sfv",
+        "md5",
+        "part",
+        "tmp",
+        "bak",
+        "strm",
+    }
+)
+
+_FALLBACK_MEDIA_EXTENSIONS = frozenset(
+    {
+        "mp4",
+        "mkv",
+        "ts",
+        "iso",
+        "rmvb",
+        "avi",
+        "mov",
+        "mpeg",
+        "mpg",
+        "wmv",
+        "3gp",
+        "asf",
+        "m4v",
+        "flv",
+        "m2ts",
+        "tp",
+        "f4v",
+        "mts",
+        "vob",
+        "webm",
+        "ogm",
+        "mxf",
+    }
+)
+
+
+def _media_extensions() -> Tuple[str, ...]:
+    """
+    读取当前媒体文件后缀，保持 MoviePilot 配置中的偏好顺序
+
+    :return Tuple: 去掉点号并转小写后的媒体后缀，按配置优先级排列
+    """
+    return tuple(
+        str(ext).lstrip(".").lower() for ext in (settings.RMT_MEDIAEXT or []) if ext
+    )
 
 
 @sentry_manager.capture_all_class_exceptions
@@ -466,9 +548,15 @@ class MediaSyncDelHelper:
             file_dir_fileitem = self.storagechain.get_file_item(
                 storage=configer.storage_module, path=Path(file_dir)
             )
-            for item in self.storagechain.list_files(file_dir_fileitem):
-                if item.basename == file_basename:
-                    return item.extension
+            if not file_dir_fileitem:
+                return None
+            return select_video_suffix(
+                self.storagechain.list_files(file_dir_fileitem),
+                file_basename,
+                settings.RMT_MEDIAEXT or _FALLBACK_MEDIA_EXTENSIONS,
+                settings.RMT_SUBEXT or [],
+                settings.RMT_AUDIOEXT or [],
+            )
         except Exception as e:
             logger.error(f"【同步删除】获取115网盘媒体后缀失败: {e}")
         return None
@@ -633,34 +721,182 @@ class MediaSyncDelHelper:
             return "", []
         return msg, transfer_history
 
-    def __delete_p115_files(self, storage: str, file_path: str, media_name: str):
+    @staticmethod
+    def __resolve_media_extension(item: Any) -> str:
         """
-        删除 115 网盘文件
+        提取文件项的媒体后缀
+
+        优先使用 FileItem.extension，缺失时回退解析路径后缀，
+        避免不同储存实现字段填充不一致导致判定失效
+
+        :param item (Any): 文件项
+
+        :return str: 去掉点号的小写后缀，无法判定时返回空字符串
+        """
+        extension = str(getattr(item, "extension", None) or "").strip().lstrip(".")
+        if extension:
+            return extension.lower()
+        return Path(str(getattr(item, "path", "") or "")).suffix.lstrip(".").lower()
+
+    def __match_stem_candidates(
+        self, parent_item: Any, stem: str, preferred_extension: str = ""
+    ) -> List[Any]:
+        """
+        在父目录中收集与给定主干同名、且确属媒体文件的条目
+
+        典型媒体目录中 `Movie (2020).mkv` 与 `Movie (2020).nfo`、`.srt`、`.jpg`
+        的主干完全相同，因此必须按媒体后缀排除旁挂文件，
+        否则后续删除会命中字幕、元数据或封面，而真正的视频仍留在网盘。
+
+        排序保证结果确定：同名后缀优先，其次按 RMT_MEDIAEXT 的偏好顺序，
+        最后按路径字典序；删除调用在无法唯一确认时拒绝扩大删除范围。
+
+        :param parent_item (Any): 父目录文件项
+        :param stem (str): 文件名主干
+        :param preferred_extension (str): 期望的后缀，用于同主干多候选时的优先选择
+
+        :return List: 按优先级排序的候选文件项
+        """
+        media_extensions = _media_extensions()
+        preferred = preferred_extension.lstrip(".").lower()
+        ranked: List[Tuple[Tuple[int, int, str], Any]] = []
+        for item in self.storagechain.list_files(parent_item) or []:
+            if item.type != "file" or item.basename != stem:
+                continue
+            extension = self.__resolve_media_extension(item)
+            if media_extensions:
+                if extension not in media_extensions:
+                    logger.debug(
+                        f"【同步删除】跳过同名非媒体文件：{item.path}（后缀 {extension or '未知'}）"
+                    )
+                    continue
+                order = media_extensions.index(extension)
+            else:
+                if (
+                    not extension
+                    or extension in _NON_MEDIA_SIDECAR_EXTENSIONS
+                    or extension not in _FALLBACK_MEDIA_EXTENSIONS
+                ):
+                    logger.debug(
+                        f"【同步删除】跳过同名非媒体文件：{item.path}（后缀 {extension or '未知'}）"
+                    )
+                    continue
+                order = 0
+            same_extension = 0 if preferred and extension == preferred else 1
+            ranked.append(
+                ((same_extension, order, str(getattr(item, "path", "") or "")), item)
+            )
+        ranked.sort(key=lambda entry: entry[0])
+        return [item for _, item in ranked]
+
+    def __match_file_by_stem(self, storage: str, file_path: str):
+        """
+        按文件名主干在父目录中查找网盘真实媒体文件
+
+        用于 Emby 上报的容器格式与网盘扩展名不一致的场景，
+        例如 115 上的 (48).mov 被 Emby 识别为 mp4。
 
         :param storage (str): 储存类型
-        :param file_path (str): 文件路径
+        :param file_path (str): 按 Emby 容器格式拼出的期望路径
+
+        :return FileItem: 匹配到的文件项，未找到返回 None
+        """
+        try:
+            path = Path(file_path)
+            parent_item = self.storagechain.get_file_item(
+                storage=storage, path=path.parent
+            )
+            if not parent_item:
+                return None
+            candidates = self.__match_stem_candidates(
+                parent_item, path.stem, path.suffix
+            )
+            if not candidates:
+                return None
+            if len(candidates) > 1:
+                candidate_count = len(candidates)
+                preferred = path.suffix.lstrip(".").lower()
+                preferred_candidates = [
+                    candidate
+                    for candidate in candidates
+                    if self.__resolve_media_extension(candidate) == preferred
+                ]
+                if len(preferred_candidates) != 1:
+                    logger.warning(
+                        f"【同步删除】同主干存在多个媒体文件，无法安全确定删除目标：{file_path}"
+                    )
+                    return None
+                candidates = preferred_candidates
+                logger.info(
+                    f"【同步删除】同名同主干媒体文件 {candidate_count} 个，"
+                    f"按上报后缀选择：{candidates[0].path}"
+                )
+            logger.info(
+                f"【同步删除】按文件名主干匹配到网盘真实文件：{candidates[0].path}"
+            )
+            return candidates[0]
+        except Exception as e:
+            logger.warn(f"【同步删除】按文件名主干匹配网盘文件失败：{e}")
+        return None
+
+    def __make_p115_cleaner(self) -> P115Cleaner:
+        return P115Cleaner(
+            self.storagechain,
+            video_exts=settings.RMT_MEDIAEXT or _FALLBACK_MEDIA_EXTENSIONS,
+            sub_exts=settings.RMT_SUBEXT or [],
+            audio_exts=settings.RMT_AUDIOEXT or [],
+        )
+
+    def __delete_p115_files(
+        self,
+        storage: str,
+        file_path: str,
+        media_name: str,
+        library_root: Optional[str] = None,
+        allow_dir: bool = False,
+    ) -> bool:
+        """
+        删除 115 网盘视频及其外挂字幕；子树内已无视频/strm 时清理已识别的刮削文件，
+        并在目录变空后逐级向上删除空目录（止于媒体库根，根本身不删）。Season/Series
+        目录事件（allow_dir）在双扫描确认后对目录发起一次递归删除并复核（避免逐文件
+        数千次调用触发风控）；路径映射第三段必须是 Emby 媒体库根目录（一库一映射）。
+        115 没有原子快照/锁，扫描到删除之间新写入的文件无法完全排除。
+
+        前置检查（目标类型、目录可列出、字幕归属）全部通过后才开始写入。
+
+        :param storage (str): 储存类型
+        :param file_path (str): 视频文件的 115 路径（精确路径）
         :param media_name (str): 媒体名称
+        :param library_root (str): 115 媒体库根，空目录清理止于此（不含）
+        :param allow_dir (bool): 是否为明确的季或剧集目录事件
+
+        :return bool: 目标已删除或本就不存在，且复核通过
         """
         try:
             if storage not in {"u115", "115网盘Plus", "CloudDrive储存"}:
                 raise OSError("不支持的储存类型")
-            # 获取文件(夹)详细信息
-            fileitem = self.storagechain.get_file_item(
-                storage=storage, path=Path(file_path)
+            res = self.__make_p115_cleaner().delete_group(
+                storage, file_path, library_root, allow_dir
             )
-            if not fileitem:
-                logger.warn(f"【同步删除】{media_name} 网盘媒体不存在：{file_path}")
-                return
-            if fileitem.type == "dir":
-                # 删除整个文件夹
-                self.storagechain.delete_file(fileitem)
-                logger.info(f"【同步删除】{media_name} 删除网盘文件夹：{file_path}")
-            else:
-                # 调用 MP 模块删除媒体文件和空媒体目录
-                self.storagechain.delete_media_file(fileitem=fileitem)
-                logger.info(f"【同步删除】{media_name} 删除网盘媒体文件：{file_path}")
+
         except Exception as e:
             logger.error(f"【同步删除】{media_name} 删除网盘媒体 {file_path} 失败: {e}")
+            return False
+        if res.ok:
+            logger.info(
+                f"【同步删除】{media_name} 网盘清理已复核({res.mode}): "
+                f"{'目标已不存在' if res.video_already_absent else '已删除'} "
+                f"文件删除数={len(res.files_deleted)} 残留文件清理数={len(res.leftovers_deleted)} "
+                f"字幕删除={res.subtitles_deleted} 字幕保留={res.subtitles_kept} "
+                f"目录删除={res.dirs_deleted} 目录停止={res.dir_stop_reason}"
+            )
+        else:
+            logger.error(
+                f"【同步删除】{media_name} 网盘清理未完成 {file_path}: "
+                f"{res.reason or ''} {res.errors} 已删字幕={res.subtitles_deleted} "
+                f"已删目录={res.dirs_deleted}"
+            )
+        return res.ok
 
     def sync_del_by_webhook(
         self,
@@ -706,6 +942,21 @@ class MediaSyncDelHelper:
         episode_num = event_data.episode_id
         # 原始数据
         json_object = getattr(event_data, "json_object", {})
+
+        # 仅限视频库：音乐/照片/图书/合集等条目不做同步删除
+        json_object = json_object if isinstance(json_object, dict) else {}
+        item = json_object.get("Item")
+        item = item if isinstance(item, dict) else {}
+        json_object = {**json_object, "Item": item}
+        _raw_type = item.get("Type")
+        if _raw_type is None:
+            # MOV/TV 是宿主归一化类型，不能证明原条目属于视频库
+            _raw_type = media_type if is_video_library_item(media_type) else None
+        if not is_video_library_item(_raw_type):
+            logger.warn(
+                f"【同步删除】{media_name} 条目类型 {_raw_type} 不属于视频库，跳过"
+            )
+            return None
 
         # 对于 Emby 新版本 API 单独处理，兼容季删除
         if json_object.get("Item", {}).get("Type", None) == "Season":
@@ -756,8 +1007,17 @@ class MediaSyncDelHelper:
                 continue
 
             # 对于 115 网盘文件需要获取媒体后缀名
-            if Path(media_path).suffix:
-                media_suffix = json_object.get("Item", {}).get("Container", None)
+            _is_folder = bool(json_object.get("Item", {}).get("IsFolder"))
+            if Path(media_path).suffix and (
+                not _is_folder
+                or looks_like_media_file(media_path, settings.RMT_MEDIAEXT or [])
+            ):
+                media_suffix = valid_container_suffix(
+                    json_object.get("Item", {}).get("Container", None),
+                    settings.RMT_MEDIAEXT or [],
+                    settings.RMT_SUBEXT or [],
+                    settings.RMT_AUDIOEXT or [],
+                )
                 if not media_suffix:
                     media_suffix = self.__get_p115_media_suffix(
                         media_path, p115_library_path
@@ -808,6 +1068,10 @@ class MediaSyncDelHelper:
                 p115_force_delete_files=p115_force_delete_files,
                 del_source=del_source,
                 notify=notify,
+                allow_dir=dir_event_allowed(
+                    json_object.get("Item", {}).get("Type"),
+                    json_object.get("Item", {}).get("IsFolder"),
+                ),
             )
             if result:
                 results.append(result)
@@ -827,6 +1091,7 @@ class MediaSyncDelHelper:
         p115_force_delete_files: bool,
         del_source: bool,
         notify: bool,
+        allow_dir: bool = False,
     ) -> Dict[str, Any]:
         """
         执行同步删除
@@ -856,9 +1121,11 @@ class MediaSyncDelHelper:
         image = "https://emby.media/notificationicon.png"
 
         mp_media_path: Optional[Path] = None
+        p115_root: Optional[str] = None
         if p115_library_path:
             _, sub_paths = PathUtils.get_p115_media_path(media_path, p115_library_path)
             if sub_paths:
+                p115_root = sub_paths[2] if len(sub_paths) > 2 else None
                 mp_media_path = Path(
                     media_path.replace(sub_paths[0], sub_paths[1]).replace("\\", "/")
                 )
@@ -906,11 +1173,14 @@ class MediaSyncDelHelper:
             if not transfer_history:
                 if p115_force_delete_files:
                     logger.warn(f"【同步删除】{media_name} 强制删除网盘媒体文件")
-                    self.__delete_p115_files(
+                    if not self.__delete_p115_files(
                         storage=configer.storage_module,
                         file_path=media_path,
                         media_name=media_name,
-                    )
+                        library_root=p115_root,
+                        allow_dir=allow_dir,
+                    ):
+                        error_cnt += 1
                 else:
                     logger.warn(
                         f"【同步删除】{media_type} {media_name} 未获取到可删除数据，请检查路径映射是否配置错误，请检查tmdbid获取是否正确"
@@ -923,23 +1193,29 @@ class MediaSyncDelHelper:
             )
             for transferhis in transfer_history:
                 title = transferhis.title
-                if title not in media_name:
+                if not title or title not in (media_name or ""):
                     logger.warn(
                         f"【同步删除】当前转移记录 {transferhis.id} {title} {transferhis.media_source}:{transferhis.media_id} 与删除媒体 {media_name} 不符，防误删，暂不自动删除"
                     )
+                    error_cnt += 1
                     continue
                 image = transferhis.image or image
                 year = transferhis.year
 
-                if not self._delete_transfer_history(transferhis.id):
-                    error_cnt += 1
-                    continue
-
-                self.__delete_p115_files(
+                # 先精确清理网盘并复核，成功后才删转移记录；失败保留记录便于重试
+                if not self.__delete_p115_files(
                     storage=transferhis.dest_storage,
                     file_path=transferhis.dest,
                     media_name=media_name,
-                )
+                    library_root=p115_root,
+                    allow_dir=allow_dir,
+                ):
+                    error_cnt += 1
+                    continue
+
+                if not self._delete_transfer_history(transferhis.id):
+                    error_cnt += 1
+                    continue
 
                 if del_source:
                     if (
@@ -977,9 +1253,15 @@ class MediaSyncDelHelper:
                                     else:
                                         stop_torrent_hashs += handle_torrent_hashs
                             except Exception as e:
-                                logger.error(f"【同步删除】删除种子失败：{str(e)}")
+                                error_cnt += 1
+                                logger.error(
+                                    f"【同步删除】删除种子失败：{str(e)}", exc_info=True
+                                )
 
-        logger.info(f"【同步删除】同步删除 {msg} 完成！")
+        if error_cnt:
+            logger.error(f"【同步删除】同步删除 {msg} 未完整完成，失败 {error_cnt} 项")
+        else:
+            logger.info(f"【同步删除】同步删除 {msg} 完成！")
 
         media_type_enum = (
             MediaType.MOVIE if media_type in ["Movie", "MOV"] else MediaType.TV
@@ -1043,7 +1325,10 @@ class MediaSyncDelHelper:
                 f"时间 {strftime('%Y-%m-%d %H:%M:%S', localtime(time()))}",
             )
 
-        self._save_sync_del_history(result)
+        if error_cnt:
+            logger.warning("【同步删除】存在失败项，不写入同步删除历史")
+        else:
+            self._save_sync_del_history(result)
 
         return result
 
